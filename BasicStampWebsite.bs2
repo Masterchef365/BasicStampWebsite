@@ -1,0 +1,544 @@
+' {$STAMP BS2}
+' {$PBASIC 2.5}
+' See manual for iEthernet W5200.
+
+ETH_RESET PIN   09
+ETH_CS    PIN   10
+ETH_MOSI  PIN   11
+ETH_MISO  PIN   12
+ETH_CLK   PIN   13
+OUTPUT ETH_CS
+OUTPUT ETH_MOSI
+INPUT  ETH_MISO
+OUTPUT ETH_CLK
+
+word0           VAR   Word
+word1           VAR   Word
+word2           VAR   Word
+word3           VAR   Word
+word4           VAR   Word
+word5           VAR   Word
+byt0            VAR   Byte
+byt1            VAR   Byte
+byt2            VAR   Byte
+byt3            VAR   Byte
+buffer          VAR   Byte(8)
+BUFFER_LEN      CON   8
+
+address   VAR   word0
+data_len  VAR   word1
+msg_len   VAR   word2
+tx_base   VAR   word3
+rx_base   VAR   word3
+prom_base VAR   word4
+cmd       VAR   byt0
+i         VAR   byt0
+j         VAR   byt1
+k         VAR   byt2
+w         VAR   word4
+x         VAR   byt3
+route     VAR   byt1
+y         VAR   word5
+
+TCP_MODE              CON    $01
+OPEN                  CON    $01
+LISTEN                CON    $02
+CLOSE                 CON    $10
+SEND                  CON    $20
+RECV                  CON    $40
+DISCONNECT            CON    $08
+SOCK_INIT             CON    $13
+SOCK_LISTEN           CON    $14
+SOCK_ESTABLISHED      CON    $17
+SOCK_CLOSED           CON    $00
+MODE_REG              CON    $0000
+S0_MR                 CON    $4000
+S0_CR                 CON    $4001
+S0_SR                 CON    $4003
+S0_SOURCE_PORT        CON    $4004
+S0_TX_RD0             CON    $4022
+S0_TX_WR0             CON    $4024
+S0_RX_RSR0            CON    $4026
+S0_RX_RD0             CON    $4028
+S0_RX_WR0             CON    $402A
+
+
+INDEX_HTML        DATA    $1F,$8B,$8,$0,$72,$E6,$A1,$6A,$2,$FF,$5D,$52,$61,$6B,$DB,$30,$10,$FD,$2B,$57,$7F,$EA,$60,$B3,$52,$AF,$2B,$A1,$28,$86,$A6,$4,$56,$46,$69,$A9,$53,$4A,$F7,$A5,$C8,$F6,$C5,$12,$91,$2D,$4F,$BA,$D4,$F8,$DF,$F7,$64,$A7,$A1,$CC,$8,$7C,$A7,$7B,$F7,$F4,$F4,$74,$52,$53,$6B,$73,$A9,$51,$D5,$B9,$24,$43,$16,$F3,$2,$1B,$5E,$52,$CC,$99,$14,$73,$AD,$55,$FE,$DF,$1,$31,$FF,$8D,$D6,$3A,$D8,$79,$D7,$2,$69,$84,$75,$91,$9D,$49,$F1,$59,$94,$A5,$AB,$C7,$1C,$F8,$93,$FA,$22,$7F,$41,$5B,$B9,$16,$81,$1C,$2C,$7F,$94,$86,$C0,$AA,$AE,$66,$34,$97,$26,$48,$3F,$FF,$2,$79,$D7,$35,$F9,$56,$9B,$0,$3,$96,$C1,$10,$2,$87,$DA,$5,$C2,$7A,$3E,$49,$C1,$3B,$FA,$11,$42,$AB,$AC,$5,$E6,$EC,$F,$84,$1E,$2A,$CE,$18,$A1,$A0,$35,$95,$77,$95,$EB,$98,$88,$77,$7C,$2A,$C5,$91,$33,$F2,$6F,$59,$A5,$54,$A0,$3D,$EE,$60,$5,$89,$26,$EA,$C3,$B5,$10,$43,$3A,$98,$BD,$11,$6F,$7F,$CD,$E5,$6D,$92,$AF,$6F,$8A,$BB,$5B,$28,$48,$B5,$BD,$14,$2A,$4F,$65,$E9,$A7,$E6,$3B,$2,$AD,$2,$FC,$CC,$A0,$1C,$9,$3,$B8,$1D,$3C,$DD,$DC,$A7,$F0,$8A,$E1,$3B,$AC,$5F,$B7,$9B,$22,$85,$87,$CE,$8E,$90,$5D,$C5,$1A,$B1,$68,$64,$5D,$1D,$94,$8,$87,$10,$E5,$3B,$F,$EF,$CA,$1B,$55,$5A,$C,$69,$E4,$53,$36,$B8,$89,$34,$DB,$AF,$63,$CF,$66,$F3,$F8,$F4,$70,$F,$E7,$2D,$DF,$37,$E6,$83,$36,$95,$8E,$6,$50,$34,$A4,$57,$D,$9E,$7D,$FB,$AA,$87,$37,$F9,$AA,$1D,$56,$D1,$1D,$B6,$96,$F,$33,$1B,$7E,$A,$DF,$21,$C1,$CB,$AF,$6C,$B1,$80,$4A,$9B,$FE,$C8,$C3,$16,$B9,$21,$0,$9B,$CF,$D0,$63,$5F,$C,$E3,$DB,$99,$8E,$A6,$AE,$13,$BB,$14,$FD,$E7,$29,$D6,$B9,$7D,$0,$6B,$F6,$38,$E9,$B8,$3E,$41,$4C,$DB,$40,$F0,$D5,$EA,$7F,$23,$9F,$FF,$8C,$75,$32,$43,$4E,$D0,$9D,$57,$FC,$FC,$13,$3A,$15,$1C,$B,$55,$8B,$E5,$72,$B1,$48,$E3,$D0,$25,$30,$98,$9A,$F4,$2A,$B9,$60,$C9,$9,$68,$34,$8D,$A6,$55,$72,$C9,$9,$F,$DD,$DC,$CB,$C1,$34,$51,$3C,$33,$71,$4C,$3F,$0,$AA,$0,$AD,$E3,$AD,$2,$0,$0,0
+INDEX_HTML_END    DATA 0
+
+RAM_HTTP          DATA "HTTP/1.1 200 OK", $0D, $0A
+                  DATA "Content-Type: text/html", $0D, $0A
+                  DATA "Content-Encoding: gzip", $0D, $0A
+                  DATA $0D, $0A
+RAM_HTML    DATA    $1F,$8B,$8,$0,$A1,$B,$A2,$6A,$2,$FF,$B3,$C9,$28,$C9,$CD,$B1,$B3,$49,$CA,$4F,$A9,$B4,$B,$72,$F4,$55,$8,$F6,$C,$71,$B5,$D1,$7,$73,$6D,$F4,$C1,$72,$0,$4C,$38,$F,$D6,$22,$0,$0,$0,0
+RAM_HTML_END      DATA 0
+
+ROUTE0            DATA "GET /ram/ad"
+ROUTE1            DATA "POST /rm/ad"
+NUM_ROUTES        CON  2
+
+NIC_RAM_BEGIN         CON    $8800
+NIC_RAM_END           CON    $C000
+
+Main:
+ETH_SPI_Begin:
+  'DEBUG "Resetting ETH", CR
+  ' Perform hardware reset
+  HIGH ETH_RESET
+  PAUSE 200
+  LOW ETH_RESET
+  PAUSE 200
+  HIGH ETH_RESET
+  SLEEP 1
+
+  ' Send software reset
+  address = MODE_REG
+  data_len = 1
+  buffer(0) = %10000000
+  GOSUB ETH_SPI_Write_Bytes
+
+  ' Setup buffer sizes
+  FOR j = 0 TO 7
+    address = $4000 + $100 * i + $1F
+    data_len = 1
+    buffer(0) = 2
+    GOSUB ETH_SPI_Write_Bytes
+
+    address = $4000 + $100 * i + $1E
+    data_len = 1
+    buffer(0) = 2
+    GOSUB ETH_SPI_Write_Bytes
+  NEXT
+
+  ' Set IMR register
+  address = $0016
+  data_len = 1
+  buffer(0) = $00
+  GOSUB ETH_SPI_Write_Bytes
+
+  ' Set RTR register
+  address = $0017
+  data_len = 2
+  buffer(0) = $0F
+  buffer(1) = $A0
+  GOSUB ETH_SPI_Write_Bytes
+
+  ' Set RTR register
+  address = $0019
+  data_len = 1
+  buffer(0) = $07
+  GOSUB ETH_SPI_Write_Bytes
+
+  ' Set MAC address
+  address = $0009
+  data_len = 6
+  buffer(0) = $02
+  buffer(1) = $69
+  buffer(2) = $42
+  buffer(3) = $06
+  buffer(4) = $94
+  buffer(5) = $20
+  GOSUB ETH_SPI_Write_Bytes
+
+  ' Set gateway address
+  address = $0001
+  data_len = 4
+  buffer(0) = 10
+  buffer(1) = 42
+  buffer(2) = 0
+  buffer(3) = 1
+  GOSUB ETH_SPI_Write_Bytes
+
+  ' Set subnet mask
+  address = $0005
+  data_len = 4
+  buffer(0) = 255
+  buffer(1) = 255
+  buffer(2) = 255
+  buffer(3) = 0
+  GOSUB ETH_SPI_Write_Bytes
+
+  ' Set source IP
+  address = $000F
+  data_len = 4
+  buffer(0) = 10
+  buffer(1) = 42
+  buffer(2) = 0
+  buffer(3) = 2
+  GOSUB ETH_SPI_Write_Bytes
+
+  ' Copy default rampage into ram
+
+  FOR w = 0 TO RAM_HTML_END-RAM_HTTP-1 STEP BUFFER_LEN
+    FOR x = 0 TO 8 - 1
+      IF w + x < RAM_HTML_END-RAM_HTTP THEN
+        READ RAM_HTTP + x + w, buffer(x)
+      ELSE
+        buffer(x) = $00
+      ENDIF
+    NEXT
+
+    address = NIC_RAM_BEGIN + w
+    data_len = BUFFER_LEN
+    GOSUB ETH_SPI_Write_Bytes
+  NEXT
+  DEBUG "Ram", CR
+
+Restart_Init:
+  'DEBUG "RESTART INIT", CR
+  ' Command the port to close
+  address = S0_CR
+  data_len = 1
+  buffer(0) = CLOSE
+  GOSUB ETH_SPI_Write_Bytes
+
+  ' Init listening TCP socket
+  address = S0_MR
+  data_len = 1
+  buffer(0) = TCP_MODE
+  GOSUB ETH_SPI_Write_Bytes
+
+  ' Set source port = 80
+  address = S0_SOURCE_PORT
+  data_len = 2
+  buffer(0) = $00
+  buffer(1) = 80
+  GOSUB ETH_SPI_Write_Bytes
+
+  ' S0_CR = OPEN
+  address = S0_CR
+  data_len = 1
+  buffer(0) = OPEN
+  GOSUB ETH_SPI_Write_Bytes
+
+  ' Read S0_SR
+  address = S0_SR
+  data_len = 1
+  GOSUB ETH_SPI_Read_Bytes
+  'DEBUG "S0_SR = $", HEX buffer(0), CR
+
+  IF NOT(buffer(0) = SOCK_INIT) THEN
+    'DEBUG "S0_SR != SOCK_INIT, S0_SR = $", HEX buffer(0), CR
+    'GOTO ETH_SPI_Begin
+    GOTO Restart_Init
+  ENDIF
+
+  'DEBUG "Socket initialized.", CR
+
+  ' == Wait for the state to change ==
+Restart_Listen:
+  'DEBUG "RESTART LISTEN", CR
+  ' S0_CR = LISTEN
+  address = S0_CR
+  data_len = 1
+  buffer(0) = LISTEN
+  GOSUB ETH_SPI_Write_Bytes
+
+  ' Read S0_SR
+  address = S0_SR
+  data_len = 1
+  GOSUB ETH_SPI_Read_Bytes
+  'DEBUG "S0_SR = $", HEX buffer(0), CR
+
+  IF NOT(buffer(0) = SOCK_LISTEN) THEN
+    'DEBUG "S0_SR != SOCK_LISTEN, S0_SR = $", HEX buffer(0), CR
+    IF buffer(0) = $00 THEN
+      'GOTO ETH_SPI_Begin
+    ENDIF
+    GOTO Restart_Init
+  ENDIF
+
+  'DEBUG "Socket listening.", CR
+
+  DO
+    address = S0_SR
+    data_len = 1
+    GOSUB ETH_SPI_Read_Bytes
+    'DEBUG "S0_SR = $", HEX buffer(0), CR
+    IF NOT(buffer(0) = SOCK_ESTABLISHED) AND NOT(buffer(0) = SOCK_LISTEN) THEN
+      GOTO Restart_Init
+    ENDIF
+  LOOP UNTIL buffer(0) = SOCK_ESTABLISHED
+
+  'DEBUG "Established!", CR
+
+Handle_Socket:
+  'DEBUG "Beginning recv", CR
+  GOSUB Socket_Begin_Recv
+  w = rx_base
+  'DEBUG "Receiving ", DEC msg_len, " bytes.", CR
+
+  ' Receive first 8 bytes of HTTP request
+  IF msg_len > 0 THEN
+    data_len = msg_len MAX BUFFER_LEN
+    GOSUB Socket_Recv_Data
+
+    ' Lookup route number
+    GOSUB Lookup_Route
+
+    ' Load next 8 bytes into buffer
+    IF msg_len > 16 THEN
+      data_len = 8
+      GOSUB Socket_Recv_Data
+      rx_base = rx_base + msg_len - 16
+    ELSE
+      rx_base = rx_base + msg_len - data_len
+    ENDIF
+  ELSE
+    route = 0
+  ENDIF
+
+  'DEBUG ? route, CR
+
+  'FOR y = BUFFER_LEN TO msg_len MAX BUFFER_LEN STEP BUFFER_LEN
+  '  data_len = (msg_len - y) MAX BUFFER_LEN
+  '  GOSUB Socket_Recv_Data
+  'NEXT
+
+
+  'DEBUG ? route, CR
+  ON route GOTO Route_0, Route_1, Route_2
+
+Route_Done:
+  'DEBUG "ROUTE DONE", CR
+  ' Disconnect command
+  address = S0_CR
+  data_len = 1
+  buffer(0) = DISCONNECT
+  GOSUB ETH_SPI_Write_Bytes
+
+  ' Restart
+  PAUSE 10
+  GOTO Restart_Init
+
+
+
+
+
+
+
+
+
+
+Lookup_Route:
+  route = 0
+  READ ROUTE0 + 5, x
+  IF buffer(5) = x THEN
+    route = 1
+    RETURN
+  ENDIF
+
+  READ ROUTE1 + 5, x
+  IF buffer(5) = x THEN
+    route = 2
+  ENDIF
+  RETURN
+
+Route_0:
+  GOSUB Socket_Finish_Recv
+  GOSUB Socket_Begin_Send
+
+  prom_base = RAM_HTTP
+  msg_len = RAM_HTML - RAM_HTTP
+  GOSUB Socket_Write_Prom
+
+  prom_base = INDEX_HTML
+  msg_len = INDEX_HTML_END - INDEX_HTML
+  GOSUB Socket_Write_Prom
+
+  GOSUB Socket_Finish_Send
+  GOTO Route_Done
+
+
+Route_1:
+  GOSUB Socket_Finish_Recv
+  GOSUB Parse_Hex
+
+  ' Read from address w into tx buffer
+  GOSUB Socket_Begin_Send
+  data_len = BUFFER_LEN
+  FOR y = w TO w + 1024 STEP 8
+    address = y
+    GOSUB ETH_SPI_Read_Bytes
+    IF buffer(0) = 0 OR buffer(1) = 0 OR buffer(2) = 0 OR buffer(3) = 0 OR buffer(4) = 0 OR buffer(5) = 0 OR buffer(6) = 0 OR buffer(7) = 0 THEN
+      ' NUL exit
+      EXIT
+    ENDIF
+
+    GOSUB Socket_Write_Data
+  NEXT
+
+  GOSUB Socket_Finish_send
+
+  GOTO Route_Done
+
+
+Route_2:
+  ' (Still receiving)
+  rx_base = rx_base - msg_len
+  GOSUB Parse_Hex
+
+  FOR y = w TO w + 1024 STEP 8
+    GOSUB Socket_Recv_Data
+    IF buffer(0) = 0 OR buffer(1) = 0 OR buffer(2) = 0 OR buffer(3) = 0 OR buffer(4) = 0 OR buffer(5) = 0 OR buffer(6) = 0 OR buffer(7) = 0 THEN
+      ' NUL exit
+      EXIT
+    ENDIF
+
+    address = y
+    data_len = 8
+    GOSUB ETH_SPI_Write_Bytes
+  NEXT
+
+  GOTO Route_Done
+
+
+Parse_Hex:
+  ' Parse abitrary address as hex into w
+  w = 0
+  FOR x = 4 TO 7
+    IF buffer(x) < $41 THEN
+      i = buffer(x) & $0f
+    ELSE
+      i = (buffer(x) + 9) & $0f
+    ENDIF
+    w = (w << 4) | i
+  NEXT
+  DEBUG HEX4 ? w
+
+  IF w < NIC_RAM_BEGIN OR w + msg_len >= NIC_RAM_END THEN
+    GOTO Route_Done ' NOTE: DIRTY!
+  ENDIF
+  RETURN
+
+Socket_Begin_Recv:
+  ' msg_len = read(S0_RX_RSR0)
+  address = S0_RX_RSR0
+  data_len = 2
+  GOSUB ETH_SPI_Read_Bytes
+  msg_len.HIGHBYTE = buffer(0)
+  msg_len.LOWBYTE = buffer(1)
+
+  ' rx_base = read(S0_RX_RD0)
+  address = S0_RX_RD0
+  data_len = 2
+  GOSUB ETH_SPI_Read_Bytes
+  rx_base.HIGHBYTE = buffer(0)
+  rx_base.LOWBYTE = buffer(1)
+
+  RETURN
+
+Socket_Recv_Data:
+  address = $C000 + (rx_base & $07FF)
+  GOSUB ETH_SPI_Read_Bytes
+
+  rx_base = rx_base + data_len
+  RETURN
+
+Socket_Finish_Recv:
+   ' S0_RX_RD0 = rx_base
+  ' buffer = msb(rx_base)
+  buffer(0) = rx_base.HIGHBYTE
+  buffer(1) = rx_base.LOWBYTE
+  address = S0_RX_RD0
+  data_len = 2
+  GOSUB ETH_SPI_Write_Bytes
+
+  ' Receive command
+  address = S0_CR
+  data_len = 1
+  buffer(0) = RECV
+  GOSUB ETH_SPI_Write_Bytes
+
+  '  TODO: WAIT(?)
+
+  RETURN
+
+Socket_Begin_Send:
+  ' tx_base = read(S0_TX_WR0)
+  address = S0_TX_WR0
+  data_len = 2
+  GOSUB ETH_SPI_Read_Bytes
+  tx_base.HIGHBYTE = buffer(0)
+  tx_base.LOWBYTE = buffer(1)
+  RETURN
+
+Socket_Write_Prom:
+  ' Write bytes to buffer
+  y = 0
+  DO
+    ' write length = at most BUFFER_LEN of the remaining message bytes
+    data_len = (msg_len - y) MAX BUFFER_LEN
+
+    ' populate buffer with message data
+    FOR j = 0 TO data_len - 1
+      READ prom_base + y + j, buffer(j)
+    NEXT
+
+    GOSUB Socket_Write_Data
+
+    y = y + data_len ' TODO: Use # of actual bytes written
+  LOOP UNTIL y >= msg_len
+  RETURN
+
+Socket_Write_Data:
+  ' Write message data to NIC memory
+  address = $8000 + (tx_base & $07FF)
+  GOSUB ETH_SPI_Write_Bytes
+
+  tx_base = tx_base + data_len
+  RETURN
+
+Socket_Finish_Send:
+  ' S0_TX_WR0 = tx_base
+  ' buffer = msb(tx_base)
+  buffer(0) = tx_base.HIGHBYTE
+  buffer(1) = tx_base.LOWBYTE
+  address = S0_TX_WR0
+  data_len = 2
+  GOSUB ETH_SPI_Write_Bytes
+
+  ' Send command
+  address = S0_CR
+  data_len = 1
+  buffer(0) = SEND
+  GOSUB ETH_SPI_Write_Bytes
+
+  RETURN
+
+ETH_SPI_Send_Preamble:
+ ' Begins an SPI transaction
+  LOW ETH_CS
+  SHIFTOUT ETH_MOSI, ETH_CLK, MSBFIRST, [address\16]
+  SHIFTOUT ETH_MOSI, ETH_CLK, MSBFIRST, [(data_len | (cmd << 8))\16]
+  RETURN
+
+ETH_SPI_Write_Bytes:
+  ' Writes `data_len` bytes from `buffer` to `address`
+  ' clobber byt0
+  cmd = $80
+  GOSUB ETH_SPI_Send_Preamble
+  FOR i = 0 TO data_len - 1
+    SHIFTOUT ETH_MOSI, ETH_CLK, MSBFIRST, [buffer(i)]
+  NEXT
+  HIGH ETH_CS
+  RETURN
+
+ETH_SPI_Read_Bytes:
+  ' Reads `data_len` bytes into `buffer` at `address`
+  ' clobber byt0
+  cmd = $00
+  GOSUB ETH_SPI_Send_Preamble
+  FOR i = 0 TO data_len - 1
+    SHIFTIN ETH_MISO, ETH_CLK, MSBPRE, [buffer(i)]
+  NEXT
+  HIGH ETH_CS
+  RETURN
+
+Clear_Buffer:
+  ' Sets buffer to $00
+  ' clobber byt0
+  FOR i = 0 TO BUFFER_LEN-1
+    buffer(i) = $00
+  NEXT
+  RETURN
